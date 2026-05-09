@@ -1,0 +1,8 @@
+# Ignore Rust/Cargo build output directories
+**/target/
+
+# Ignore editor and OS files
+.vscode/
+.DS_Store
+Thumbs.db
+/dist

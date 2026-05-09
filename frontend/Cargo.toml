@@ -1,0 +1,15 @@
+[package]
+name = "leptos-tutorial"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+leptos = { version = "0.8.15", features = ["csr"] }
+leptos_icons = "0.7.1"
+leptos_router = "0.8.13"
+web-sys = { version = "0.3.85", features = ["Window", "Storage"] }
+thaw = "0.4.8"
+validator = { version = "0.20.0", features = ["derive"] }
+
+[package.metadata.leptos]
+tailwind-input-file = "style/tailwind.css"
