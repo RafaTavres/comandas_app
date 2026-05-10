@@ -6,4 +6,3 @@ ignore = ["target"]
 
 [serve]
 port = 5173
-address = "127.0.0.1"

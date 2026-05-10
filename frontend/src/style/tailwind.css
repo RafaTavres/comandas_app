@@ -11,7 +11,7 @@
   body {
     width: 100%;
     font-family: 'Inter', sans-serif;
-    background-color: var(--alabaster-500);
+    background-color: #e2e8f0;
   }
 }
 
@@ -20,6 +20,11 @@
   .bg-amber { background-color: var(--amber-500); }
   .text-amber { color: var(--amber-500); }
   .text-alabaster { color: var(--alabaster-500); }
+
+  .password-input::-ms-reveal,
+  .password-input::-ms-clear {
+    display: none;
+  }
   
   .container-custom {
     padding: 20px;
