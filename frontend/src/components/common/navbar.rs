@@ -1,5 +1,6 @@
 use leptos::prelude::*;
 use leptos_router::hooks::use_navigate;
+use leptos_icons::Icon;
 
 use crate::context::auth::use_auth;
 
@@ -7,6 +8,7 @@ use crate::context::auth::use_auth;
 struct MenuItem {
     label: &'static str,
     path: &'static str,
+    icon: icondata::Icon,
 }
 
 #[component]
@@ -18,17 +20,27 @@ fn MenuButtons(
     view! {
         {menu_items.into_iter().map(|item| view! {
             <button
-                class="px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100 sm:px-3 sm:py-2 sm:text-base w-full sm:w-auto text-left sm:text-center"
+                class="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100 lg:px-3 lg:py-2 lg:text-sm xl:text-base w-full lg:w-auto text-left lg:text-center"
                 on:click=create_menu_item_click(item.path)
             >
+                <Icon icon=item.icon width="1.2em" height="1.2em" />
                 {item.label}
             </button>
         }).collect::<Vec<_>>()}
         <button
-            class="px-3 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 w-full sm:w-auto text-left sm:text-center"
+            class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 text-blue-700 w-full lg:w-auto text-left lg:text-center"
+                title="Perfil do usuário"
+            >
+                <Icon icon=icondata::FaCircleUserSolid width="1.2em" height="1.2em" />
+                Perfil
+            </button>
+        <button
+            class="flex items-center justify-center px-3 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 w-full lg:w-auto text-left lg:text-center"
             on:click=move |_| (logout)()
+            title="Sair"
+            aria-label="Sair"
         >
-            "Sair"
+            <Icon icon=icondata::IoLogOut width="1.5em" height="1.5em" />
         </button>
     }
 }
@@ -42,25 +54,23 @@ pub fn Navbar() -> impl IntoView {
     let logout = auth.logout.clone();
     let is_authenticated = move || auth.is_authenticated.get();
 
-    let menu_items = vec![
-        MenuItem { label: "Dashboard", path: "/home" },
-        MenuItem { label: "Funcionários", path: "/funcionarios" },
-        MenuItem { label: "Clientes", path: "/clientes" },
-        MenuItem { label: "Produtos", path: "/produtos" },
-        MenuItem { label: "Comandas", path: "/comandas" },
-        MenuItem { label: "Caixa", path: "/caixa" },
+   let menu_items = vec![
+        MenuItem { label: "Dashboard", path: "/home", icon: icondata::FaGaugeSolid },
+        MenuItem { label: "Funcionários", path: "/funcionarios", icon: icondata::FaUserGroupSolid },
+        MenuItem { label: "Clientes", path: "/clientes", icon: icondata::FaUserSolid },
+        MenuItem { label: "Produtos", path: "/produtos", icon: icondata::FaUtensilsSolid },
+        MenuItem { label: "Comandas", path: "/comandas", icon: icondata::FaReceiptSolid },
+        MenuItem { label: "Caixa", path: "/caixa", icon: icondata::FaCashRegisterSolid },
     ];
 
     let toggle_drawer = move |_| set_mobile_drawer_open.update(|open| *open = !*open);
 
-    // --- INSTÂNCIA 1: Botão Logo ---
     let nav_home = navigate.clone();
     let goto_home = move |_| {
         nav_home("/", Default::default());
         set_mobile_drawer_open.set(false);
     };
 
-    // --- INSTÂNCIA 2: Menu Desktop ---
     let nav_desk = navigate.clone();
     let goto_login_desktop = move |_| {
         nav_desk("/login", Default::default());
@@ -69,7 +79,6 @@ pub fn Navbar() -> impl IntoView {
     let menu_items_desktop = menu_items.clone();
     let logout_desktop = logout.clone();
 
-    // --- INSTÂNCIA 3: Menu Mobile ---
     let nav_mob = navigate.clone();
     let goto_login_mobile = move |_| {
         nav_mob("/login", Default::default());
@@ -78,7 +87,6 @@ pub fn Navbar() -> impl IntoView {
     let menu_items_mobile = menu_items.clone();
     let logout_mobile = logout.clone();
 
-    // --- INSTÂNCIA 4: Cliques do Menu ---
     let nav_menu = navigate.clone();
     let create_menu_item_click = std::sync::Arc::new(move |path: &'static str| {
         let nav_click = nav_menu.clone();
@@ -92,32 +100,41 @@ pub fn Navbar() -> impl IntoView {
     let create_click_mobile = create_menu_item_click;
 
     view! {
-        <header class="bg-white border-b border-slate-200 sticky top-0 z-40">
-            <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-                <div class="flex items-center gap-4">
+        <header class="bg-sky-300 border-b border-sky-400 shadow-sm sticky top-0 z-40">
+            <div class="max-w-7xl mx-auto px-3 py-3 sm:px-4 flex items-center justify-between gap-3">
+                <div class="flex min-w-0 items-center gap-3 sm:gap-4">
                     <button
-                        class="sm:hidden px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200"
+                        class="lg:hidden px-3 py-2 rounded-lg bg-white/90 hover:bg-white"
                         on:click=toggle_drawer
                         aria-label="Abrir menu"
                     >
                         "☰"
                     </button>
 
+                    <Icon icon=icondata::FaMoneyCheckSolid width="1.2em" height="1.2em" />
+
                     <button
-                        class="text-lg font-bold text-slate-900"
+                        class="truncate text-lg font-bold text-slate-900"
                         on:click=goto_home
                     >
-                        "Comandas do Zé"
+                        "E-Comandas"
                     </button>
+                    <div class="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white">
+                        <img
+                            class="h-full w-full object-cover"
+                            src="/public/minhacarafeia.jpg?v=3"
+                            alt="Minha cara"
+                        />
+                    </div>
                 </div>
 
-                // === MENU DESKTOP ===
-                <div class="hidden sm:flex items-center gap-3">
+                
+                <div class="hidden lg:flex items-center gap-2 xl:gap-3">
                     <Show 
                         when=is_authenticated
                         fallback=move || view! {
                             <button
-                                class="px-4 py-2 rounded-lg bg-amber-500 text-white hover:bg-amber-600"
+                                class="px-4 py-2 rounded-lg bg-slate-900 text-white hover:bg-slate-800"
                                 on:click=goto_login_desktop.clone()
                             >
                                 "Login"
@@ -134,7 +151,7 @@ pub fn Navbar() -> impl IntoView {
             </div>
 
             <div 
-                class="sm:hidden bg-white border-t border-slate-200"
+                class="lg:hidden bg-white border-t border-slate-200 shadow-sm"
                 class=("hidden", move || !mobile_drawer_open.get()) 
             >
                 <div class="flex flex-col gap-1 p-4">

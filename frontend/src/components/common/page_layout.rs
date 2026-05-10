@@ -13,7 +13,9 @@ pub fn PageLayout(
     let max_width_class = match max_width.as_deref() {
         Some("sm") => "max-w-3xl",
         Some("md") => "max-w-5xl",
+        Some("xl") => "max-w-6xl",
         Some("lg") => "max-w-7xl",
+        Some("7xl") => "max-w-7xl",
         _ => "max-w-7xl",
     };
 
@@ -24,24 +26,26 @@ pub fn PageLayout(
     });
 
     view! {
-        <Navbar />
-        <main class="w-full px-4 py-6 sm:px-6 lg:px-8">
-            <div class=format!("mx-auto w-full {max_width_class}")>
-                <div class="rounded-3xl overflow-hidden shadow-xl">
-                    <section class="bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-700 px-6 py-6 sm:px-8 sm:py-8 text-white">
-                        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <h1 class="text-2xl font-semibold sm:text-3xl">{title}</h1>
+        <div class="min-h-screen bg-slate-200">
+            <Navbar />
+            <main class="w-full px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+                <div class=format!("mx-auto w-full {max_width_class}")>
+                    <div class="overflow-hidden rounded-2xl shadow-2xl sm:rounded-3xl">
+                        <section class="bg-gradient-to-r from-sky-500 via-sky-600 to-cyan-700 px-4 py-5 sm:px-8 sm:py-8 text-white">
+                            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                <div class="min-w-0">
+                                    <h1 class="break-words text-2xl font-semibold sm:text-3xl">{title}</h1>
+                                </div>
+                                {actions_view}
                             </div>
-                            {actions_view}
-                        </div>
-                    </section>
+                        </section>
 
-                    <section class="bg-white border border-slate-200 p-6 sm:p-8">
-                        {children()}
-                    </section>
+                        <section class="bg-white border border-slate-200 p-4 sm:p-8">
+                            {children()}
+                        </section>
+                    </div>
                 </div>
-            </div>
-        </main>
+            </main>
+        </div>
     }
 }
