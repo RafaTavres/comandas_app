@@ -3,6 +3,7 @@ use leptos::prelude::*;
 use leptos_router::hooks::use_navigate;
 use std::sync::Arc;
 use web_sys::{window as web_window, Storage, Window as WebWindow};
+use crate::utils::snackbar::show_snackbar;
 
 #[derive(Clone)]
 pub struct AuthContext {
@@ -25,14 +26,14 @@ pub fn AuthProvider(children: Children) -> impl IntoView {
     let (is_authenticated, set_is_authenticated) = signal(initial_is_authenticated);
 
     let login = Arc::new(move |cpf: String, senha: String| {
-        if cpf == "123" && senha == "123123" {
+        if cpf == "123.123.123-12" && senha == "rafaeltavares" {
             set_is_authenticated.set(true);
             if let Some(storage) = web_window().and_then(|w: WebWindow| -> Option<Storage> { w.session_storage().ok().flatten() }) {
                 _ = storage.set_item("loginRealizado", "true");
             }
             login_navigate("/home", Default::default());
         } else {
-            window().alert_with_message("Usuário ou senha inválidos!").unwrap();
+            show_snackbar("Usuário ou senha inválidos!", "error");
         }
     });
 
