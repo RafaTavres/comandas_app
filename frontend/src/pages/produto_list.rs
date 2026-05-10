@@ -8,14 +8,15 @@ struct Produto {
     nome: String,
     descricao: String,
     valor_unitario: f64,
+    imagem: String,
 }
 
 #[component]
 pub fn ProdutoList() -> impl IntoView {
     let produtos = vec![
-        Produto { id: 1, nome: "Hambúrguer Clássico".to_string(), descricao: "Pão, carne, alface, tomate e queijo".to_string(), valor_unitario: 25.90 },
-        Produto { id: 2, nome: "Batata Frita".to_string(), descricao: "Porção média de batata crocante".to_string(), valor_unitario: 12.50 },
-        Produto { id: 3, nome: "Refrigerante".to_string(), descricao: "Lata 350ml".to_string(), valor_unitario: 8.00 },
+        Produto { id: 1, nome: "Hambúrguer Clássico".to_string(), descricao: "Pão, carne, alface, tomate e queijo".to_string(), valor_unitario: 25.90, imagem: "public/favicon_io/android-chrome-192x192.png".to_string() },
+        Produto { id: 2, nome: "Batata Frita".to_string(), descricao: "Porção média de batata crocante".to_string(), valor_unitario: 12.50, imagem: "public/favicon_io/favicon-32x32.png".to_string() },
+        Produto { id: 3, nome: "Refrigerante".to_string(), descricao: "Lata 350ml".to_string(), valor_unitario: 8.00, imagem: "public/favicon_io/favicon-16x16.png".to_string() },
     ];
 
     let on_view = std::sync::Arc::new(move |produto: Produto| {
@@ -40,11 +41,11 @@ pub fn ProdutoList() -> impl IntoView {
 
     view! {
         <PageLayout title="Produtos".to_string() max_width="7xl".to_string()>
-         <div class="mb-6 flex justify-end">
-                <div class="mb-6 flex justify-end">
+            <div class="mb-6 flex">
+                <div class="flex w-full justify-stretch sm:justify-end">
                     <a 
                         href="/produtos/novo" 
-                        class="rounded-xl bg-amber-500 px-6 py-3 font-semibold text-white hover:bg-amber-600 transition"
+                        class="w-full rounded-xl bg-amber-500 px-6 py-3 text-center font-semibold text-white hover:bg-amber-600 transition sm:w-auto"
                     >
                         "+ Novo Produto"
                     </a>
@@ -90,25 +91,32 @@ pub fn ProdutoList() -> impl IntoView {
                     {produtos.into_iter().map(|produto| {
                         let preco = format_currency(produto.valor_unitario);
                         view! {
-                            <div class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-                                <div class="flex items-center justify-between gap-4">
-                                    <div>
-                                        <p class="text-lg font-semibold text-slate-900">{produto.nome.clone()}</p>
-                                        <p class="text-sm text-slate-500">{"ID: "}{produto.id}</p>
+                            <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                                <img
+                                    class="h-48 w-full object-cover"
+                                    src={produto.imagem.clone()}
+                                    alt={format!("Foto do produto {}", produto.nome)}
+                                />
+                                <div class="p-4">
+                                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                                        <div class="min-w-0">
+                                            <p class="break-words text-lg font-semibold text-slate-900">{produto.nome.clone()}</p>
+                                            <p class="text-sm text-slate-500">{"ID: "}{produto.id}</p>
+                                        </div>
+                                        <div class="min-w-0 sm:text-right">
+                                            <p class="break-words text-sm font-semibold text-success-600">{preco}</p>
+                                        </div>
                                     </div>
-                                    <div class="text-right">
-                                        <p class="text-sm font-semibold text-success-600">{preco}</p>
-                                    </div>
-                                </div>
-                                <div class="mt-4 space-y-3">
-                                    <p class="text-sm text-slate-600">{produto.descricao.clone()}</p>
-                                    <div class="flex justify-end">
-                                        <ActionButtons
-                                            item=produto
-                                            on_view=on_view.clone()
-                                            on_edit=on_edit.clone()
-                                            on_delete=on_delete.clone()
-                                        />
+                                    <div class="mt-4 space-y-3">
+                                        <p class="break-words text-sm text-slate-600">{produto.descricao.clone()}</p>
+                                        <div class="flex justify-end">
+                                            <ActionButtons
+                                                item=produto
+                                                on_view=on_view.clone()
+                                                on_edit=on_edit.clone()
+                                                on_delete=on_delete.clone()
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </div>

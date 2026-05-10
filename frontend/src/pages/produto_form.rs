@@ -1,6 +1,8 @@
 use leptos::prelude::*; 
-// Importe o event_target diretamente de leptos, e mantenha o SubmitEvent em ev
 use leptos::ev::SubmitEvent;
+use wasm_bindgen::closure::Closure;
+use wasm_bindgen::JsCast;
+use crate::utils::snackbar::show_snackbar;
 
 use leptos_router::hooks::use_navigate;
 use crate::components::common::PageLayout;
@@ -12,7 +14,7 @@ pub fn ProdutoForm() -> impl IntoView {
     let (descricao, set_descricao) = signal(String::new());
     let (valor_unitario, set_valor_unitario) = signal(String::new());
     let (foto_selecionada, set_foto_selecionada) = signal(None::<String>);
-    let (mensagem, set_mensagem) = signal(None::<String>);
+    let (foto_url, set_foto_url) = signal(None::<String>);
 
     let navigate = use_navigate();
     let on_cancel = move |_| {
@@ -21,36 +23,45 @@ pub fn ProdutoForm() -> impl IntoView {
 
     let on_submit = move |ev: SubmitEvent| {
         ev.prevent_default();
-        set_mensagem.set(None);
 
         if nome.get().trim().is_empty() {
-            set_mensagem.set(Some("Nome do produto é obrigatório".to_string()));
+            show_snackbar("Nome do produto é obrigatório", "warning");
             return;
         }
 
         if descricao.get().trim().is_empty() {
-            set_mensagem.set(Some("Descrição do produto é obrigatória".to_string()));
+            show_snackbar("Descrição do produto é obrigatória", "warning");
             return;
         }
 
         if valor_unitario.get().trim().is_empty() || valor_unitario.get().parse::<f64>().is_err() {
-            set_mensagem.set(Some("Valor unitário inválido".to_string()));
+            show_snackbar("Valor unitário inválido", "warning");
             return;
         }
 
-        set_mensagem.set(Some("Produto salvo com sucesso!".to_string()));
+        show_snackbar("Produto salvo com sucesso!", "success");
     };
 
     let on_file_change = move |ev| {
-        // CORREÇÃO: event_target retorna o HtmlInputElement diretamente
         let input = event_target::<web_sys::HtmlInputElement>(&ev);
         
-        // Agora sim, input.files() retorna um Option<FileList>
         if let Some(files) = input.files() {
             if files.length() > 0 {
-                // files.get(0) retorna um Option<File>
                 if let Some(file) = files.get(0) {
                     set_foto_selecionada.set(Some(file.name()));
+                    if let Ok(reader) = web_sys::FileReader::new() {
+                        let set_foto_url = set_foto_url.clone();
+                        let reader_for_closure = reader.clone();
+                        let onloadend = Closure::once_into_js(move |_: web_sys::ProgressEvent| {
+                            if let Ok(result) = reader_for_closure.result() {
+                                if let Some(url) = result.as_string() {
+                                    set_foto_url.set(Some(url));
+                                }
+                            }
+                        });
+                        reader.set_onloadend(Some(onloadend.unchecked_ref()));
+                        let _ = reader.read_as_data_url(&file);
+                    }
                 }
             }
         }
@@ -94,13 +105,23 @@ pub fn ProdutoForm() -> impl IntoView {
                         class="hidden"
                         on:change=on_file_change
                     />
-                    <label for="foto-upload" class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100 transition">
+                    <label for="foto-upload" class="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100 transition sm:w-auto">
                         "Selecionar Foto"
                     </label>
-                    <p class="text-sm text-slate-500">
+                    <p class="break-words text-sm text-slate-500">
                         {move || foto_selecionada.get().clone().unwrap_or_else(|| "Nenhuma foto selecionada".to_string())}
                     </p>
                 </div>
+
+                <Show when=move || foto_url.get().is_some()>
+                    <div class="mt-4 max-w-sm rounded-2xl border border-slate-200 bg-slate-50 p-3 shadow-sm">
+                        <img
+                            class="aspect-video w-full rounded-xl object-cover"
+                            src={move || foto_url.get().clone().unwrap_or_default()}
+                            alt="Prévia da foto do produto"
+                        />
+                    </div>
+                </Show>
 
                 <div class="flex flex-col gap-3 sm:flex-row sm:justify-end">
                     <button
@@ -117,10 +138,6 @@ pub fn ProdutoForm() -> impl IntoView {
                         "Cadastrar"
                     </button>
                 </div>
-
-                <Show when=move || mensagem.get().is_some()>
-                    <p class="text-sm text-amber-700">{move || mensagem.get().unwrap_or_default()}</p>
-                </Show>
             </form>
         </PageLayout>
     }
