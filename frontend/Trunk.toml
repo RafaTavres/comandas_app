@@ -6,3 +6,8 @@ ignore = ["target"]
 
 [serve]
 port = 5173
+
+[[proxy]]
+backend = "https://localhost:4443/"
+rewrite = "/api/"
+insecure = true
