@@ -2,13 +2,61 @@ use leptos::prelude::*;
 use leptos_icons::Icon;
 use leptos_router::hooks::use_navigate;
 
-use crate::{components::common::UserProfile, context::auth::use_auth};
+use crate::{
+    components::common::UserProfile,
+    context::auth::use_auth,
+    utils::user_groups::{read_group, ADMINISTRADOR, CAIXA},
+};
 
 #[derive(Clone)]
 struct MenuItem {
     label: &'static str,
     path: &'static str,
     icon: icondata::Icon,
+}
+
+fn menu_items_for_group(group: Option<i32>) -> Vec<MenuItem> {
+    let mut items = vec![MenuItem {
+        label: "Dashboard",
+        path: "/home",
+        icon: icondata::FaGaugeSolid,
+    }];
+
+    if group == Some(ADMINISTRADOR) {
+        items.push(MenuItem {
+            label: "Funcionarios",
+            path: "/funcionarios",
+            icon: icondata::FaUserGroupSolid,
+        });
+    }
+
+    items.extend([
+        MenuItem {
+            label: "Clientes",
+            path: "/clientes",
+            icon: icondata::FaUserSolid,
+        },
+        MenuItem {
+            label: "Produtos",
+            path: "/produtos",
+            icon: icondata::FaUtensilsSolid,
+        },
+        MenuItem {
+            label: "Comandas",
+            path: "/comandas",
+            icon: icondata::FaReceiptSolid,
+        },
+    ]);
+
+    if matches!(group, Some(ADMINISTRADOR | CAIXA)) {
+        items.push(MenuItem {
+            label: "Caixa",
+            path: "/caixa",
+            icon: icondata::FaCashRegisterSolid,
+        });
+    }
+
+    items
 }
 
 #[component]
@@ -60,14 +108,12 @@ pub fn Navbar() -> impl IntoView {
     let user = auth.user;
     let is_authenticated = move || auth.is_authenticated.get();
 
-    let menu_items = vec![
-        MenuItem { label: "Dashboard", path: "/home", icon: icondata::FaGaugeSolid },
-        MenuItem { label: "Funcionarios", path: "/funcionarios", icon: icondata::FaUserGroupSolid },
-        MenuItem { label: "Clientes", path: "/clientes", icon: icondata::FaUserSolid },
-        MenuItem { label: "Produtos", path: "/produtos", icon: icondata::FaUtensilsSolid },
-        MenuItem { label: "Comandas", path: "/comandas", icon: icondata::FaReceiptSolid },
-        MenuItem { label: "Caixa", path: "/caixa", icon: icondata::FaCashRegisterSolid },
-    ];
+    let visible_menu_items = move || {
+        let user = user.get();
+        let group = user.as_ref().and_then(read_group);
+
+        menu_items_for_group(group)
+    };
 
     let toggle_drawer = move |_| {
         set_mobile_drawer_open.update(|open| *open = !*open);
@@ -87,7 +133,6 @@ pub fn Navbar() -> impl IntoView {
         set_mobile_drawer_open.set(false);
         set_profile_open.set(false);
     };
-    let menu_items_desktop = menu_items.clone();
     let logout_desktop = logout.clone();
 
     let nav_mob = navigate.clone();
@@ -96,7 +141,6 @@ pub fn Navbar() -> impl IntoView {
         set_mobile_drawer_open.set(false);
         set_profile_open.set(false);
     };
-    let menu_items_mobile = menu_items.clone();
     let logout_mobile = logout.clone();
 
     let nav_menu = navigate.clone();
@@ -161,7 +205,7 @@ pub fn Navbar() -> impl IntoView {
                         }
                     >
                         <MenuButtons
-                            menu_items=menu_items_desktop.clone()
+                            menu_items=visible_menu_items()
                             logout=logout_desktop.clone()
                             create_menu_item_click=create_click_desktop.clone()
                             on_profile_click=profile_click_desktop.clone()
@@ -189,7 +233,7 @@ pub fn Navbar() -> impl IntoView {
                         }
                     >
                         <MenuButtons
-                            menu_items=menu_items_mobile.clone()
+                            menu_items=visible_menu_items()
                             logout=logout_mobile.clone()
                             create_menu_item_click=create_click_mobile.clone()
                             on_profile_click=profile_click_mobile.clone()

@@ -2,7 +2,10 @@ use leptos::prelude::*;
 use leptos_icons::Icon;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use wasm_bindgen::JsValue;
 use web_sys::CustomEvent;
+
+const SNACKBAR_CONFIRMED_EVENT: &str = "snackbarConfirmed";
 
 #[component]
 pub fn SnackbarGlobal() -> impl IntoView {
@@ -10,10 +13,13 @@ pub fn SnackbarGlobal() -> impl IntoView {
     let (open, set_open) = signal(false);
     let (message, set_message) = signal(String::new());
     let (severity, set_severity) = signal(String::from("success"));
+    let (confirm_label, set_confirm_label) = signal(String::new());
+    let (cancel_label, set_cancel_label) = signal(String::new());
+    let (action_id, set_action_id) = signal(String::new());
 
     
     Effect::new(move |_| {
-        if open.get() {
+        if open.get() && action_id.get().is_empty() {
             let set_open = set_open;
             let closure = Closure::once_into_js(move || {
                 set_open.set(false);
@@ -32,15 +38,21 @@ pub fn SnackbarGlobal() -> impl IntoView {
         let set_open = set_open;
         let set_message = set_message;
         let set_severity = set_severity;
+        let set_confirm_label = set_confirm_label;
+        let set_cancel_label = set_cancel_label;
+        let set_action_id = set_action_id;
 
         let listener = Closure::wrap(Box::new(move |event: web_sys::Event| {
             if let Some(custom) = event.dyn_ref::<CustomEvent>() {
                 if let Some(detail) = custom.detail().as_string() {
-                    if let Some((message_text, severity_text)) = detail.split_once('\0') {
-                        set_message.set(message_text.to_string());
-                        set_severity.set(severity_text.to_string());
-                        set_open.set(true);
-                    }
+                    let parts = detail.split('\0').collect::<Vec<_>>();
+
+                    set_message.set(parts.first().copied().unwrap_or_default().to_string());
+                    set_severity.set(parts.get(1).copied().unwrap_or("success").to_string());
+                    set_confirm_label.set(parts.get(2).copied().unwrap_or_default().to_string());
+                    set_cancel_label.set(parts.get(3).copied().unwrap_or("Cancelar").to_string());
+                    set_action_id.set(parts.get(4).copied().unwrap_or_default().to_string());
+                    set_open.set(true);
                 }
             }
         }) as Box<dyn FnMut(_)>);
@@ -53,6 +65,30 @@ pub fn SnackbarGlobal() -> impl IntoView {
 
         listener.forget();
     });
+
+    let on_confirm = move |_| {
+        let current_action_id = action_id.get_untracked();
+        set_open.set(false);
+
+        if current_action_id.is_empty() {
+            return;
+        }
+
+        if let Ok(event) = CustomEvent::new(SNACKBAR_CONFIRMED_EVENT) {
+            event.init_custom_event_with_can_bubble_and_cancelable_and_detail(
+                SNACKBAR_CONFIRMED_EVENT,
+                true,
+                false,
+                &JsValue::from_str(&current_action_id),
+            );
+
+            let _ = window().dispatch_event(&event);
+        }
+    };
+
+    let on_cancel = move |_| {
+        set_open.set(false);
+    };
 
     let severity_class = move || match severity.get().as_str() {
         "error" => "bg-red-50 border-red-200 text-red-900",
@@ -84,6 +120,24 @@ pub fn SnackbarGlobal() -> impl IntoView {
                         <div class="flex-1 min-w-0">
                             <p class="text-sm font-semibold uppercase tracking-wider">{title()}</p>
                             <p class="mt-2 text-sm leading-6">{message.get()}</p>
+                            <Show when=move || !action_id.get().is_empty() fallback=|| view! {}>
+                                <div class="mt-4 flex justify-end gap-2">
+                                    <button
+                                        type="button"
+                                        class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                                        on:click=on_cancel
+                                    >
+                                        {move || cancel_label.get()}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+                                        on:click=on_confirm
+                                    >
+                                        {move || confirm_label.get()}
+                                    </button>
+                                </div>
+                            </Show>
                         </div>
                     </div>
                 </div>

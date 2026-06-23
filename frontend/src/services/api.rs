@@ -86,12 +86,27 @@ where
     request(Method::GET, endpoint, None, true, true).await
 }
 
+pub async fn get_public<T>(endpoint: &str) -> Result<T, ApiError>
+where
+    T: DeserializeOwned,
+{
+    request(Method::GET, endpoint, None, false, false).await
+}
+
 pub async fn post<B, T>(endpoint: &str, body: &B) -> Result<T, ApiError>
 where
     B: Serialize + ?Sized,
     T: DeserializeOwned,
 {
-    request(Method::POST, endpoint, Some(serde_json::to_value(body)?), false, true).await
+    request(Method::POST, endpoint, Some(serde_json::to_value(body)?), true, true).await
+}
+
+pub async fn post_public<B, T>(endpoint: &str, body: &B) -> Result<T, ApiError>
+where
+    B: Serialize + ?Sized,
+    T: DeserializeOwned,
+{
+    request(Method::POST, endpoint, Some(serde_json::to_value(body)?), false, false).await
 }
 
 pub async fn put<B, T>(endpoint: &str, body: &B) -> Result<T, ApiError>
@@ -102,11 +117,26 @@ where
     request(Method::PUT, endpoint, Some(serde_json::to_value(body)?), true, true).await
 }
 
+pub async fn put_without_body<T>(endpoint: &str) -> Result<T, ApiError>
+where
+    T: DeserializeOwned,
+{
+    request(Method::PUT, endpoint, None, true, true).await
+}
+
+pub async fn put_empty(endpoint: &str) -> Result<(), ApiError> {
+    request_empty(Method::PUT, endpoint, None, true, true).await
+}
+
 pub async fn delete<T>(endpoint: &str) -> Result<T, ApiError>
 where
     T: DeserializeOwned,
 {
     request(Method::DELETE, endpoint, None, true, true).await
+}
+
+pub async fn delete_empty(endpoint: &str) -> Result<(), ApiError> {
+    request_empty(Method::DELETE, endpoint, None, true, true).await
 }
 
 async fn request<T>(
@@ -129,6 +159,25 @@ where
     }
 
     parse_response(response).await
+}
+
+async fn request_empty(
+    method: Method,
+    endpoint: &str,
+    body: Option<Value>,
+    retry_on_unauthorized: bool,
+    include_auth: bool,
+) -> Result<(), ApiError> {
+    let response = send(method.clone(), endpoint, body.clone(), include_auth).await?;
+
+    if response.status() == StatusCode::UNAUTHORIZED && retry_on_unauthorized {
+        refresh_access_token().await?;
+
+        let response = send(method, endpoint, body, include_auth).await?;
+        return parse_empty_response(response).await;
+    }
+
+    parse_empty_response(response).await
 }
 
 async fn send(
@@ -161,6 +210,21 @@ where
 
     if status.is_success() {
         return Ok(response.json::<T>().await?);
+    }
+
+    let error_body = response.json::<ApiErrorBody>().await.ok();
+    let message = error_body
+        .and_then(|body| body.detail.or(body.message))
+        .unwrap_or_else(|| "Erro desconhecido".to_string());
+
+    Err(ApiError::with_status(status, message))
+}
+
+async fn parse_empty_response(response: reqwest::Response) -> Result<(), ApiError> {
+    let status = response.status();
+
+    if status.is_success() {
+        return Ok(());
     }
 
     let error_body = response.json::<ApiErrorBody>().await.ok();
