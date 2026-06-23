@@ -86,6 +86,8 @@ pub struct CaixaProdutoComanda {
     pub quantidade: f64,
     #[serde(default, deserialize_with = "deserialize_f64_or_default")]
     pub valor_unitario: f64,
+    #[serde(default, alias = "foto", alias = "imagem")]
+    pub foto: Option<String>,
     #[serde(default, deserialize_with = "deserialize_f64_or_default", alias = "total")]
     pub valor_total: f64,
 }
@@ -132,7 +134,19 @@ pub struct CaixaComandaResumo {
     #[serde(default, deserialize_with = "deserialize_string_or_default", alias = "cliente")]
     pub cliente_nome: String,
     #[serde(default)]
+    pub produtos: Vec<CaixaProdutoComanda>,
+    #[serde(default)]
     pub detalhe: Option<CaixaComandaDetalhe>,
+}
+
+impl CaixaComandaResumo {
+    pub fn produtos(&self) -> Vec<CaixaProdutoComanda> {
+        self.detalhe
+            .as_ref()
+            .map(|detalhe| detalhe.produtos.clone())
+            .filter(|produtos| !produtos.is_empty())
+            .unwrap_or_else(|| self.produtos.clone())
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]

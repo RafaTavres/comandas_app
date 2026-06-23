@@ -1,14 +1,20 @@
 use leptos::ev::SubmitEvent;
 use leptos::prelude::*;
 use leptos_router::hooks::{use_navigate, use_params_map};
+use std::collections::HashMap;
 use web_sys::window;
 
 use crate::{
     components::common::PageLayout,
     context::auth::use_auth,
-    services::caixa_service::{
-        self, CaixaComandaResumo, CaixaResumoResponse, CaixaSelecaoComandasRequest, Recebimento,
-        RecebimentoCreatePayload, RecebimentoUpdatePayload,
+    services::{
+        caixa_service::{
+            self, CaixaComandaResumo, CaixaProdutoComanda, CaixaResumoResponse,
+            CaixaSelecaoComandasRequest, Recebimento, RecebimentoCreatePayload,
+            RecebimentoUpdatePayload,
+        },
+        comanda_service::{self, ComandaItem, ComandaItemListParams},
+        produto_service::{self, foto_to_src, Produto, ProdutoListParams},
     },
     utils::{
         snackbar::show_snackbar,
@@ -66,6 +72,14 @@ fn format_currency(value: f64) -> String {
     format!("R$ {:.2}", value)
 }
 
+fn format_quantity(value: f64) -> String {
+    if (value - value.trunc()).abs() < f64::EPSILON {
+        format!("{}", value as i64)
+    } else {
+        format!("{:.2}", value)
+    }
+}
+
 fn display_cliente(comanda: &CaixaComandaResumo) -> String {
     if !comanda.cliente_nome.trim().is_empty() {
         return comanda.cliente_nome.clone();
@@ -120,6 +134,195 @@ fn selection_payload(ids_text: &str, numeros_text: &str) -> CaixaSelecaoComandas
         comanda_ids: (!ids.is_empty()).then_some(ids),
         numeros_comandas: (!numeros.is_empty()).then_some(numeros),
     }
+}
+
+async fn carregar_catalogo_produtos() -> HashMap<u32, Produto> {
+    produto_service::list(ProdutoListParams {
+        skip: 0,
+        limit: 1000,
+        ..ProdutoListParams::default()
+    })
+    .await
+    .unwrap_or_default()
+    .into_iter()
+    .map(|produto| (produto.id, produto))
+    .collect()
+}
+
+fn produto_catalogo<'a>(
+    item: &CaixaProdutoComanda,
+    produtos: &'a HashMap<u32, Produto>,
+) -> Option<&'a Produto> {
+    item.produto_id.and_then(|id| produtos.get(&id))
+}
+
+fn enriquecer_produto_comanda(
+    mut item: CaixaProdutoComanda,
+    produtos: &HashMap<u32, Produto>,
+) -> CaixaProdutoComanda {
+    let produto = produto_catalogo(&item, produtos);
+
+    if item.produto_nome.trim().is_empty() {
+        if let Some(produto) = produto {
+            item.produto_nome = produto.nome.clone();
+        }
+    }
+
+    if item
+        .foto
+        .as_ref()
+        .map(|foto| foto.trim().is_empty())
+        .unwrap_or(true)
+    {
+        item.foto = produto.and_then(|produto| produto.foto.clone());
+    }
+
+    if item.valor_unitario <= 0.0 {
+        if let Some(produto) = produto {
+            item.valor_unitario = produto.valor_unitario;
+        }
+    }
+
+    if item.valor_total <= 0.0 {
+        item.valor_total = item.quantidade * item.valor_unitario;
+    }
+
+    item
+}
+
+fn item_consumo_para_caixa(
+    item: ComandaItem,
+    produtos: &HashMap<u32, Produto>,
+) -> CaixaProdutoComanda {
+    let produto = item.produto_id.and_then(|id| produtos.get(&id));
+    let valor_unitario = if item.valor_unitario > 0.0 {
+        item.valor_unitario
+    } else {
+        produto.map(|produto| produto.valor_unitario).unwrap_or(0.0)
+    };
+    let valor_total = if item.valor_total > 0.0 {
+        item.valor_total
+    } else {
+        item.quantidade * valor_unitario
+    };
+
+    CaixaProdutoComanda {
+        id: item.id,
+        comanda_id: item.comanda_id,
+        produto_id: item.produto_id,
+        funcionario_id: item.funcionario_id,
+        produto_nome: if item.produto_nome.trim().is_empty() {
+            produto
+                .map(|produto| produto.nome.clone())
+                .unwrap_or_default()
+        } else {
+            item.produto_nome
+        },
+        funcionario_nome: item.funcionario_nome,
+        quantidade: item.quantidade,
+        valor_unitario,
+        foto: produto.and_then(|produto| produto.foto.clone()),
+        valor_total,
+    }
+}
+
+async fn carregar_produtos_da_comanda(
+    comanda: &CaixaComandaResumo,
+    produtos: &HashMap<u32, Produto>,
+) -> Vec<CaixaProdutoComanda> {
+    let itens_consumo = if comanda.id > 0 {
+        comanda_service::list_items(
+            comanda.id,
+            ComandaItemListParams {
+                skip: 0,
+                limit: 1000,
+            },
+        )
+        .await
+        .ok()
+        .filter(|items| !items.is_empty())
+    } else {
+        None
+    };
+
+    let itens = itens_consumo
+        .map(|items| {
+            items
+                .into_iter()
+                .map(|item| item_consumo_para_caixa(item, produtos))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_else(|| comanda.produtos());
+
+    itens
+        .into_iter()
+        .map(|item| enriquecer_produto_comanda(item, produtos))
+        .collect()
+}
+
+fn aplicar_produtos_na_comanda(
+    mut comanda: CaixaComandaResumo,
+    produtos: Vec<CaixaProdutoComanda>,
+) -> CaixaComandaResumo {
+    let valor_total = produtos.iter().map(|produto| produto.valor_total).sum::<f64>();
+
+    if valor_total > 0.0 {
+        comanda.valor_total = valor_total;
+    }
+
+    if let Some(detalhe) = &mut comanda.detalhe {
+        detalhe.produtos = produtos.clone();
+
+        if valor_total > 0.0 {
+            detalhe.valor_total = valor_total;
+        }
+    }
+
+    comanda.produtos = produtos;
+    comanda
+}
+
+async fn enriquecer_resumo(mut resumo: CaixaResumoResponse) -> CaixaResumoResponse {
+    let produtos_catalogo = carregar_catalogo_produtos().await;
+    let mut comandas = Vec::with_capacity(resumo.comandas.len());
+
+    for comanda in resumo.comandas {
+        let produtos = carregar_produtos_da_comanda(&comanda, &produtos_catalogo).await;
+        comandas.push(aplicar_produtos_na_comanda(comanda, produtos));
+    }
+
+    let valor_total = comandas.iter().map(comanda_total).sum::<f64>();
+
+    resumo.quantidade_comandas = comandas.len() as u32;
+    resumo.comandas = comandas;
+
+    if valor_total > 0.0 {
+        resumo.valor_total = valor_total;
+    }
+
+    resumo
+}
+
+async fn enriquecer_recebimento(mut recebimento: Recebimento) -> Recebimento {
+    let resumo = enriquecer_resumo(CaixaResumoResponse {
+        comandas: recebimento.comandas,
+        quantidade_comandas: 0,
+        valor_total: recebimento.valor_total,
+    })
+    .await;
+
+    recebimento.comandas = resumo.comandas;
+
+    if recebimento.valor_total <= 0.0 {
+        recebimento.valor_total = resumo.valor_total;
+        recebimento.valor_final = final_value(
+            recebimento.valor_total,
+            recebimento.desconto,
+            recebimento.acrescimo,
+        );
+    }
+
+    recebimento
 }
 
 #[component]
@@ -186,6 +389,8 @@ pub fn RecebimentoForm() -> impl IntoView {
 
             match caixa_service::get_recebimento(id).await {
                 Ok(data) => {
+                    let data = enriquecer_recebimento(data).await;
+
                     set_cliente_id.set(
                         data.cliente_id
                             .map(|value| value.to_string())
@@ -243,7 +448,7 @@ pub fn RecebimentoForm() -> impl IntoView {
             set_loading_selection.set(true);
 
             match caixa_service::selecionar_comandas(&payload).await {
-                Ok(summary) => set_selection_summary.set(Some(summary)),
+                Ok(summary) => set_selection_summary.set(Some(enriquecer_resumo(summary).await)),
                 Err(error) => {
                     set_selection_summary.set(None);
                     show_snackbar(
@@ -528,8 +733,8 @@ pub fn RecebimentoForm() -> impl IntoView {
 
                             let comandas = recebimento
                                 .get()
-                                .map(|data| data.comandas)
-                                .or_else(|| selection_summary.get().map(|summary| summary.comandas))
+                                .map(|data| data.comandas.clone())
+                                .or_else(|| selection_summary.get().map(|summary| summary.comandas.clone()))
                                 .unwrap_or_default();
 
                             if comandas.is_empty() {
@@ -550,6 +755,94 @@ pub fn RecebimentoForm() -> impl IntoView {
                                     <p class="font-semibold text-slate-900 md:text-right">{format_currency(comanda_total(&comanda))}</p>
                                 </div>
                             }.into_any()).collect::<Vec<_>>()
+                        }}
+                    </div>
+                </section>
+
+                <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <div class="border-b border-slate-200 bg-slate-50 px-4 py-3 sm:px-5">
+                        <h2 class="text-base font-semibold text-slate-900">"Produtos por comanda"</h2>
+                    </div>
+                    <div class="divide-y divide-slate-200">
+                        {move || {
+                            let comandas = recebimento
+                                .get()
+                                .map(|data| data.comandas.clone())
+                                .or_else(|| selection_summary.get().map(|summary| summary.comandas.clone()))
+                                .unwrap_or_default();
+
+                            if comandas.is_empty() {
+                                return vec![view! {
+                                    <div class="px-5 py-8 text-center text-sm text-slate-500">
+                                        "Nenhuma comanda selecionada."
+                                    </div>
+                                }.into_any()];
+                            }
+
+                            comandas.into_iter().map(move |comanda| {
+                                let produtos = comanda.produtos();
+
+                                if produtos.is_empty() {
+                                    view! {
+                                        <div class="px-5 py-6">
+                                            <p class="font-semibold text-slate-900">{"Comanda "}{comanda.comanda.clone()}</p>
+                                            <p class="text-sm text-slate-500">"Detalhes de produtos não disponíveis."</p>
+                                        </div>
+                                    }.into_any()
+                                } else {
+                                    view! {
+                                        <div class="space-y-4 px-5 py-6">
+                                            <div class="space-y-1">
+                                                <p class="font-semibold text-slate-900">{"Comanda "}{comanda.comanda.clone()}</p>
+                                                <p class="text-sm text-slate-500">{"Cliente: "}{display_cliente(&comanda)}</p>
+                                            </div>
+                                            <div class="overflow-hidden rounded-3xl border border-slate-200">
+                                                <div class="grid grid-cols-[80px_1fr_1fr_1fr_1fr] gap-2 bg-slate-50 px-4 py-3 text-xs uppercase tracking-wide text-slate-500">
+                                                    <span>"Foto"</span>
+                                                    <span>"Produto"</span>
+                                                    <span>"Quantidade"</span>
+                                                    <span>"Unitário"</span>
+                                                    <span>"Total"</span>
+                                                </div>
+                                                {produtos.into_iter().map(move |item| {
+                                                    let image_src = foto_to_src(item.foto.as_deref());
+                                                    let image_src_value = image_src.clone().unwrap_or_default();
+                                                    let image_has_src = image_src.is_some();
+                                                    let item_name = item.produto_nome.clone();
+
+                                                    let image_view = if image_has_src {
+                                                        view! {
+                                                            <img
+                                                                src=move || image_src_value.clone()
+                                                                alt={move || format!("Foto do produto {}", item_name.clone())}
+                                                                class="h-full w-full object-cover"
+                                                            />
+                                                        }.into_any()
+                                                    } else {
+                                                        view! {
+                                                            <div class="flex h-full items-center justify-center text-xs text-slate-500">"Sem foto"</div>
+                                                        }.into_any()
+                                                    };
+
+                                                    view! {
+                                                        <div class="grid grid-cols-[80px_1fr_1fr_1fr_1fr] gap-2 px-4 py-3 items-center border-t border-slate-200 text-sm text-slate-700">
+                                                            <div class="h-20 w-20 overflow-hidden rounded-xl bg-slate-100">
+                                                                {image_view}
+                                                            </div>
+                                                            <div class="min-w-0">
+                                                                <p class="font-semibold text-slate-900">{item.produto_nome.clone()}</p>
+                                                            </div>
+                                                            <div>{format_quantity(item.quantidade)}</div>
+                                                            <div>{format_currency(item.valor_unitario)}</div>
+                                                            <div class="font-semibold text-slate-900">{format_currency(item.valor_total)}</div>
+                                                        </div>
+                                                    }.into_any()
+                                                }).collect::<Vec<_>>()}
+                                            </div>
+                                        </div>
+                                    }.into_any()
+                                }
+                            }).collect::<Vec<_>>()
                         }}
                     </div>
                 </section>
