@@ -47,7 +47,7 @@ pub async fn login(cpf: &str, senha: &str) -> AuthResult<AuthTokens> {
         senha: senha.to_string(),
     };
 
-    match api::post::<_, AuthTokens>(endpoints::auth::LOGIN, &payload).await {
+    match api::post_public::<_, AuthTokens>(endpoints::auth::LOGIN, &payload).await {
         Ok(tokens) => match api::save_tokens(tokens.clone()) {
             Ok(()) => AuthResult::success(tokens),
             Err(error) => AuthResult::error(error.message),

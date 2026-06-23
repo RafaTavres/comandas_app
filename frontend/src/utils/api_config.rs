@@ -19,8 +19,8 @@ pub mod endpoints {
     }
 
     pub mod funcionario {
-        pub const LIST: &str = "/funcionario";
-        pub const CREATE: &str = "/funcionario";
+        pub const LIST: &str = "/funcionario/";
+        pub const CREATE: &str = "/funcionario/";
 
         pub fn get(id: impl std::fmt::Display) -> String {
             format!("/funcionario/{id}")
@@ -36,8 +36,8 @@ pub mod endpoints {
     }
 
     pub mod cliente {
-        pub const LIST: &str = "/cliente";
-        pub const CREATE: &str = "/cliente";
+        pub const LIST: &str = "/cliente/";
+        pub const CREATE: &str = "/cliente/";
 
         pub fn get(id: impl std::fmt::Display) -> String {
             format!("/cliente/{id}")
@@ -53,9 +53,9 @@ pub mod endpoints {
     }
 
     pub mod produto {
-        pub const PUBLIC_LIST: &str = "/produto/public";
-        pub const LIST: &str = "/produto";
-        pub const CREATE: &str = "/produto";
+        pub const PUBLIC_LIST: &str = "/produtos-publica/";
+        pub const LIST: &str = "/produto/";
+        pub const CREATE: &str = "/produto/";
 
         pub fn get(id: impl std::fmt::Display) -> String {
             format!("/produto/{id}")
@@ -71,8 +71,8 @@ pub mod endpoints {
     }
 
     pub mod comanda {
-        pub const LIST: &str = "/comanda";
-        pub const CREATE: &str = "/comanda";
+        pub const LIST: &str = "/comanda/";
+        pub const CREATE: &str = "/comanda/";
 
         pub fn get(id: impl std::fmt::Display) -> String {
             format!("/comanda/{id}")
@@ -98,28 +98,38 @@ pub mod endpoints {
             format!("/comanda/{id}/produtos")
         }
 
-        pub fn update_item(comanda_id: impl std::fmt::Display, produto_id: impl std::fmt::Display) -> String {
-            format!("/comanda/{comanda_id}/produto/{produto_id}")
+        pub fn update_item(id: impl std::fmt::Display) -> String {
+            format!("/comanda/produto/{id}")
         }
 
-        pub fn remove_item(comanda_id: impl std::fmt::Display, produto_id: impl std::fmt::Display) -> String {
-            format!("/comanda/{comanda_id}/produto/{produto_id}")
+        pub fn remove_item(id: impl std::fmt::Display) -> String {
+            format!("/comanda/produto/{id}")
         }
     }
 
-    pub mod recebimento {
-        pub const DASHBOARD: &str = "/recebimento/dashboard";
+    pub mod caixa {
+        pub const DASHBOARD: &str = "/caixa/dashboard";
+        pub const SELECIONAR_COMANDAS: &str = "/caixa/comandas/selecionar";
+    }
 
-        pub fn detalhe(id: impl std::fmt::Display) -> String {
-            format!("/recebimento/comandas/detalhe/{id}")
+    pub mod recebimento {
+        pub const LIST: &str = "/recebimento/";
+        pub const CREATE: &str = "/recebimento/";
+
+        pub fn get(id: impl std::fmt::Display) -> String {
+            format!("/recebimento/{id}")
         }
 
-        pub fn receber(id: impl std::fmt::Display) -> String {
-            format!("/recebimento/completo/{id}")
+        pub fn update(id: impl std::fmt::Display) -> String {
+            format!("/recebimento/{id}")
+        }
+
+        pub fn delete(id: impl std::fmt::Display) -> String {
+            format!("/recebimento/{id}")
         }
 
         pub fn comprovante(id: impl std::fmt::Display) -> String {
-            format!("/recebimento/comprovante/{id}")
+            format!("/recebimento/{id}/comprovante")
         }
     }
 
